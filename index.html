@@ -1,40 +1,892 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Afsana 2026 Scanner</title>
-  <link rel="stylesheet" href="scanner.css">
-  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event Scanner</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111a2b;
+      --panel-2:#172338;
+      --border:rgba(255,255,255,.08);
+      --text:#eef4ff;
+      --muted:#9fb0cf;
+      --gold:#f4c95d;
+      --green:#16a34a;
+      --red:#dc2626;
+      --blue:#2563eb;
+      --shadow:0 20px 50px rgba(0,0,0,.35);
+      --radius:22px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'Inter',sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(244,201,93,.12), transparent 26%),
+        linear-gradient(135deg,#08101d 0%,#0f172a 48%,#111827 100%);
+      color:var(--text);
+      min-height:100vh;
+    }
+
+    .wrap{
+      width:min(1100px,94%);
+      margin:30px auto;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:20px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .brand-badge{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      background:linear-gradient(135deg,#1d4ed8,#0f766e);
+      display:grid;
+      place-items:center;
+      box-shadow:var(--shadow);
+      color:#fff;
+      font-size:20px;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(22px,3vw,32px);
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .page{
+      display:grid;
+      grid-template-columns:1.12fr .88fr;
+      gap:22px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      backdrop-filter:blur(10px);
+    }
+
+    .card-head{
+      padding:18px 20px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .card-head h3{
+      margin:0;
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    .card-head p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .camera-box{
+      padding:18px;
+    }
+
+    .video-shell{
+      position:relative;
+      border-radius:20px;
+      overflow:hidden;
+      background:#060b14;
+      border:1px solid rgba(255,255,255,.08);
+      min-height:420px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    video{
+      width:100%;
+      height:420px;
+      object-fit:cover;
+      background:#000;
+      display:block;
+    }
+
+    #camera-placeholder{
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      color:var(--muted);
+      text-align:center;
+      padding:24px;
+      background:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.22));
+    }
+
+    #camera-placeholder i{
+      font-size:44px;
+      color:var(--gold);
+    }
+
+    #scan-overlay{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      display:none;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .scan-frame{
+      width:min(280px,70%);
+      aspect-ratio:1/1;
+      border:3px solid rgba(244,201,93,.95);
+      border-radius:22px;
+      box-shadow:0 0 0 999px rgba(0,0,0,.34);
+      position:relative;
+    }
+
+    .scan-line{
+      position:absolute;
+      left:8%;
+      right:8%;
+      top:14%;
+      height:2px;
+      background:linear-gradient(90deg,transparent,#22c55e,transparent);
+      box-shadow:0 0 18px #22c55e;
+      animation:scanMove 2s linear infinite;
+    }
+
+    @keyframes scanMove{
+      0%{top:14%}
+      50%{top:84%}
+      100%{top:14%}
+    }
+
+    .scanner-controls{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      border:none;
+      outline:none;
+      border-radius:14px;
+      padding:13px 18px;
+      font-family:inherit;
+      font-weight:700;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      transition:.22s ease;
+      position:relative;
+      min-height:48px;
+    }
+
+    .btn:hover{transform:translateY(-1px)}
+    .btn:disabled{opacity:.58;cursor:not-allowed;transform:none}
+
+    .btn-primary{
+      background:linear-gradient(135deg,#2563eb,#1d4ed8);
+      color:#fff;
+    }
+
+    .btn-secondary{
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .btn-danger{
+      background:linear-gradient(135deg,#ef4444,#dc2626);
+      color:#fff;
+    }
+
+    .btn-gold{
+      background:linear-gradient(135deg,#f4c95d,#eab308);
+      color:#1f2937;
+    }
+
+    .status-bar{
+      margin-top:16px;
+      padding:14px 16px;
+      border-radius:16px;
+      font-size:14px;
+      font-weight:600;
+      border:1px solid transparent;
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      line-height:1.5;
+    }
+
+    .status-info{
+      background:rgba(37,99,235,.12);
+      border-color:rgba(37,99,235,.24);
+      color:#cfe0ff;
+    }
+
+    .status-success{
+      background:rgba(22,163,74,.14);
+      border-color:rgba(22,163,74,.24);
+      color:#d9ffe5;
+    }
+
+    .status-error{
+      background:rgba(220,38,38,.14);
+      border-color:rgba(220,38,38,.24);
+      color:#ffd8d8;
+    }
+
+    .status-scanning{
+      background:rgba(244,201,93,.12);
+      border-color:rgba(244,201,93,.24);
+      color:#ffefbd;
+    }
+
+    .side{
+      display:flex;
+      flex-direction:column;
+      gap:22px;
+    }
+
+    .section-body{
+      padding:18px 20px 20px;
+    }
+
+    .manual-note{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+
+    .manual-input-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .manual-input-row input{
+      flex:1 1 240px;
+      background:rgba(255,255,255,.04);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:14px;
+      padding:14px 15px;
+      font-family:inherit;
+      font-size:15px;
+      outline:none;
+    }
+
+    .manual-input-row input:focus{
+      border-color:rgba(37,99,235,.55);
+      box-shadow:0 0 0 4px rgba(37,99,235,.13);
+    }
+
+    .result-box{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:18px;
+      min-height:210px;
+    }
+
+    .result-placeholder{
+      color:var(--muted);
+      text-align:center;
+      padding:30px 10px;
+    }
+
+    .result-card h2{
+      margin:0 0 10px;
+      font-size:24px;
+      font-weight:800;
+      color:#fff;
+    }
+
+    .result-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.3px;
+      margin-bottom:14px;
+    }
+
+    .rb-success{
+      background:rgba(22,163,74,.18);
+      color:#ccf8d8;
+      border:1px solid rgba(22,163,74,.26);
+    }
+
+    .rb-warn{
+      background:rgba(244,201,93,.15);
+      color:#ffeeb7;
+      border:1px solid rgba(244,201,93,.25);
+    }
+
+    .rb-error{
+      background:rgba(220,38,38,.16);
+      color:#ffd7d7;
+      border:1px solid rgba(220,38,38,.24);
+    }
+
+    .student-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .info{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:12px;
+    }
+
+    .info .k{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.7px;
+      margin-bottom:6px;
+      font-weight:700;
+    }
+
+    .info .v{
+      font-size:15px;
+      font-weight:700;
+      color:#fff;
+      word-break:break-word;
+    }
+
+    .footer-tip{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+
+    .btn-spinner{
+      width:16px;
+      height:16px;
+      border:2px solid rgba(255,255,255,.35);
+      border-top-color:#fff;
+      border-radius:50%;
+      animation:spin .7s linear infinite;
+      display:none;
+    }
+
+    .btn.loading .btn-spinner{display:inline-block}
+    .btn.loading .btn-txt{opacity:.85}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    canvas{display:none}
+
+    @media (max-width: 920px){
+      .page{grid-template-columns:1fr}
+      .video-shell, video{min-height:340px;height:340px}
+    }
+
+    @media (max-width: 560px){
+      .wrap{width:min(96%,96%)}
+      .card-head,.section-body,.camera-box{padding:16px}
+      .scanner-controls,.manual-input-row{flex-direction:column}
+      .btn,.manual-input-row input{width:100%}
+      .student-grid{grid-template-columns:1fr}
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Afsana 2026 QR Scanner</h1>
-    <p>Scan student QR and mark attendance</p>
-
-    <div class="card">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="canvas" hidden></canvas>
-      <div id="status">Camera not started</div>
-
-      <div class="actions">
-        <button id="startBtn">Start Scanner</button>
-        <button id="stopBtn" disabled>Stop</button>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-badge"><i class="fas fa-qrcode"></i></div>
+        <div>
+          <h1>Event Entry Scanner</h1>
+          <p>Scan QR code or verify using 4-digit entry code</p>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h3>Manual QR Input</h3>
-      <input id="manualQr" type="text" placeholder="Paste QR value">
-      <button id="manualVerifyBtn">Verify</button>
+    <div class="page">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Live Scanner</h3>
+            <p>Use camera to scan attendee QR code</p>
+          </div>
+        </div>
+
+        <div class="camera-box">
+          <div class="video-shell">
+            <video id="scanner-video" autoplay muted playsinline></video>
+
+            <div id="camera-placeholder">
+              <i class="fas fa-camera"></i>
+              <div>
+                <div style="font-weight:800;color:#fff;font-size:18px;margin-bottom:6px;">Camera not started</div>
+                <div>Tap <strong>Start Scanner</strong>. If live camera is blocked on your device, use the 4-digit manual verification section.</div>
+              </div>
+            </div>
+
+            <div id="scan-overlay">
+              <div class="scan-frame">
+                <div class="scan-line"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="scanner-controls">
+            <button class="btn btn-primary" id="start-btn" onclick="startCamera()">
+              <div class="btn-spinner"></div>
+              <span class="btn-txt"><i class="fas fa-play"></i> Start Scanner</span>
+            </button>
+
+            <button class="btn btn-danger" id="stop-btn" onclick="stopCamera()" disabled>
+              <div class="btn-spinner"></div>
+              <span class="btn-txt"><i class="fas fa-stop"></i> Stop Scanner</span>
+            </button>
+
+            <button class="btn btn-secondary" id="flip-btn" onclick="flipCamera()" disabled>
+              <div class="btn-spinner"></div>
+              <span class="btn-txt"><i class="fas fa-rotate"></i> Flip Camera</span>
+            </button>
+          </div>
+
+          <div id="scanner-status" class="status-bar status-info">
+            <i class="fas fa-circle-info"></i>
+            <div>Ready. Start scanner or verify manually using the entry code.</div>
+          </div>
+
+          <canvas id="qr-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3><i class="fas fa-keyboard" style="color:var(--gold);margin-right:8px;"></i>Manual Verification</h3>
+              <p>Enter the 4-digit code or paste the QR string</p>
+            </div>
+          </div>
+
+          <div class="section-body">
+            <div class="manual-note">
+              If camera scanning is not working on your device, enter the <strong>4-digit entry code</strong> shared with the attendee.
+              You may also paste the QR value directly.
+            </div>
+
+            <div class="manual-input-row">
+              <input type="text" id="manual-qr" placeholder="Enter 4-digit entry code or paste QR string"
+                     onkeydown="if(event.key==='Enter') manualVerify()">
+              <button class="btn btn-gold" id="manual-btn" onclick="manualVerify()">
+                <div class="btn-spinner"></div>
+                <span class="btn-txt"><i class="fas fa-check"></i> Verify</span>
+              </button>
+            </div>
+
+            <div class="footer-tip">
+              Tip: For fastest entry at the gate, use the 4-digit code if the attendee cannot show the QR clearly.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Verification Result</h3>
+              <p>Attendance and attendee details will appear here</p>
+            </div>
+          </div>
+
+          <div class="section-body">
+            <div id="result-box" class="result-box">
+              <div class="result-placeholder">
+                <i class="fas fa-ticket" style="font-size:30px;color:var(--gold);margin-bottom:12px;display:block;"></i>
+                No verification yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Result</h3>
-      <pre id="resultBox">No scan yet</pre>
-    </div>
   </div>
 
-  <script src="scanner.js"></script>
+  <script>
+    let stream = null;
+    let scanning = false;
+    let scanLoopId = null;
+    let facingMode = 'environment';
+    let isVerifying = false;
+
+    function setBtnLoading(id, loading) {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      if (loading) btn.classList.add('loading');
+      else btn.classList.remove('loading');
+      btn.disabled = loading || btn.dataset.forceDisabled === 'true';
+    }
+
+    function esc(v) {
+      return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function setStatus(msg, type = 'info') {
+      const box = document.getElementById('scanner-status');
+      let cls = 'status-info';
+      let icon = 'fa-circle-info';
+
+      if (type === 'success') {
+        cls = 'status-success';
+        icon = 'fa-circle-check';
+      } else if (type === 'error') {
+        cls = 'status-error';
+        icon = 'fa-circle-exclamation';
+      } else if (type === 'scanning') {
+        cls = 'status-scanning';
+        icon = 'fa-expand';
+      }
+
+      box.className = 'status-bar ' + cls;
+      box.innerHTML = `<i class="fas ${icon}"></i><div>${msg}</div>`;
+    }
+
+    function showResult(res) {
+      const box = document.getElementById('result-box');
+
+      if (!res) {
+        box.innerHTML = `
+          <div class="result-placeholder">
+            <i class="fas fa-ticket" style="font-size:30px;color:var(--gold);margin-bottom:12px;display:block;"></i>
+            No verification yet
+          </div>`;
+        return;
+      }
+
+      if (!res.success) {
+        box.innerHTML = `
+          <div class="result-card">
+            <div class="result-badge rb-error"><i class="fas fa-xmark"></i> VERIFICATION FAILED</div>
+            <h2>Invalid Entry</h2>
+            <div style="color:#ffd4d4;font-weight:600;line-height:1.6;">${esc(res.error || 'Verification failed')}</div>
+          </div>`;
+        return;
+      }
+
+      const s = res.student || {};
+      const already = !!res.alreadyMarked;
+
+      box.innerHTML = `
+        <div class="result-card">
+          <div class="result-badge ${already ? 'rb-warn' : 'rb-success'}">
+            <i class="fas ${already ? 'fa-clock-rotate-left' : 'fa-circle-check'}"></i>
+            ${already ? 'ALREADY MARKED' : 'ENTRY VERIFIED'}
+          </div>
+
+          <h2>${esc(s.name || 'Verified')}</h2>
+          <div style="color:${already ? '#ffe5a3' : '#cff7db'};font-weight:700;line-height:1.6;">
+            ${esc(res.message || (already ? 'Already marked present' : 'Marked present successfully'))}
+          </div>
+
+          <div class="student-grid">
+            <div class="info">
+              <div class="k">Enrollment No.</div>
+              <div class="v">${esc(s.enrollmentNo || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Role</div>
+              <div class="v">${esc(s.role || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Branch</div>
+              <div class="v">${esc(s.branch || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Batch</div>
+              <div class="v">${esc(s.batch || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Event</div>
+              <div class="v">${esc(s.event || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Entry Code</div>
+              <div class="v">${esc(s.entryCode || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Verified By</div>
+              <div class="v">${esc(s.verifiedBy || '—')}</div>
+            </div>
+            <div class="info">
+              <div class="k">Marked At</div>
+              <div class="v">${esc(s.markedAt || '—')}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function startCamera() {
+      const video = document.getElementById('scanner-video');
+      const startBtn = document.getElementById('start-btn');
+      const stopBtn = document.getElementById('stop-btn');
+      const flipBtn = document.getElementById('flip-btn');
+
+      try {
+        setBtnLoading('start-btn', true);
+        setStatus('Starting camera...', 'info');
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera API is not supported in this browser/context.');
+        }
+
+        if (stream) stopCamera();
+
+        let mediaStream = null;
+
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: facingMode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+        } catch (e1) {
+          try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: false
+            });
+          } catch (e2) {
+            throw e2;
+          }
+        }
+
+        stream = mediaStream;
+        video.setAttribute('playsinline', true);
+        video.setAttribute('autoplay', true);
+        video.setAttribute('muted', true);
+        video.srcObject = stream;
+        await video.play();
+
+        document.getElementById('camera-placeholder').style.display = 'none';
+        document.getElementById('scan-overlay').style.display = 'flex';
+
+        startBtn.dataset.forceDisabled = 'true';
+        stopBtn.dataset.forceDisabled = 'false';
+        flipBtn.dataset.forceDisabled = 'false';
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        flipBtn.disabled = false;
+
+        scanning = true;
+        setStatus('Scanner active. Point camera at QR code.', 'scanning');
+        scanFrame();
+      } catch (err) {
+        let msg = 'Unable to access camera.';
+        const raw = err && err.message ? err.message : String(err);
+
+        if (err && err.name === 'NotAllowedError') {
+          msg = 'Camera permission denied or blocked in this browser context. Use the 4-digit manual verification field.';
+        } else if (err && err.name === 'NotFoundError') {
+          msg = 'No camera device found on this device.';
+        } else if (err && err.name === 'NotReadableError') {
+          msg = 'Camera is currently being used by another app.';
+        } else if (err && err.name === 'OverconstrainedError') {
+          msg = 'Requested camera mode is not supported on this device.';
+        } else if (raw) {
+          msg = raw;
+        }
+
+        setStatus(msg, 'error');
+        document.getElementById('camera-placeholder').style.display = 'flex';
+        document.getElementById('scan-overlay').style.display = 'none';
+
+        startBtn.dataset.forceDisabled = 'false';
+        stopBtn.dataset.forceDisabled = 'true';
+        flipBtn.dataset.forceDisabled = 'true';
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        flipBtn.disabled = true;
+      } finally {
+        setBtnLoading('start-btn', false);
+      }
+    }
+
+    function stopCamera() {
+      if (scanLoopId) {
+        cancelAnimationFrame(scanLoopId);
+        scanLoopId = null;
+      }
+
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+
+      scanning = false;
+
+      const video = document.getElementById('scanner-video');
+      if (video) video.srcObject = null;
+
+      document.getElementById('camera-placeholder').style.display = 'flex';
+      document.getElementById('scan-overlay').style.display = 'none';
+
+      const startBtn = document.getElementById('start-btn');
+      const stopBtn = document.getElementById('stop-btn');
+      const flipBtn = document.getElementById('flip-btn');
+
+      startBtn.dataset.forceDisabled = 'false';
+      stopBtn.dataset.forceDisabled = 'true';
+      flipBtn.dataset.forceDisabled = 'true';
+
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      flipBtn.disabled = true;
+
+      setStatus('Camera stopped. You can verify manually using the entry code.', 'info');
+    }
+
+    async function flipCamera() {
+      facingMode = facingMode === 'environment' ? 'user' : 'environment';
+      await startCamera();
+    }
+
+    function scanFrame() {
+      if (!scanning || isVerifying) return;
+
+      const video = document.getElementById('scanner-video');
+      const canvas = document.getElementById('qr-canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code && code.data) {
+          scanning = false;
+          setStatus('QR detected. Verifying...', 'info');
+          verifyEntry(code.data, 'QR Scan');
+          return;
+        }
+      }
+
+      scanLoopId = requestAnimationFrame(scanFrame);
+    }
+
+    function manualVerify() {
+      const input = document.getElementById('manual-qr');
+      const value = input.value.trim();
+
+      if (!value) {
+        setStatus('Please enter the 4-digit entry code or paste the QR string.', 'error');
+        input.focus();
+        return;
+      }
+
+      verifyEntry(value, /^\d{4}$/.test(value) ? 'Manual Code' : 'Manual QR');
+    }
+
+    function verifyEntry(value, sourceLabel) {
+      if (isVerifying) return;
+
+      isVerifying = true;
+      setBtnLoading('manual-btn', true);
+      setStatus(`Verifying via ${sourceLabel}...`, 'info');
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          isVerifying = false;
+          setBtnLoading('manual-btn', false);
+
+          showResult(res);
+
+          if (res && res.success) {
+            setStatus(res.message || 'Verification successful.', res.alreadyMarked ? 'info' : 'success');
+            document.getElementById('manual-qr').value = '';
+
+            try {
+              if (navigator.vibrate) navigator.vibrate(res.alreadyMarked ? [80] : [120, 60, 120]);
+            } catch (e) {}
+          } else {
+            setStatus((res && res.error) ? res.error : 'Verification failed.', 'error');
+            scanning = false;
+          }
+        })
+        .withFailureHandler(function(err) {
+          isVerifying = false;
+          setBtnLoading('manual-btn', false);
+
+          const msg = err && err.message ? err.message : String(err);
+          setStatus('Server error: ' + msg, 'error');
+          showResult({ success: false, error: msg });
+          scanning = false;
+        })
+        .verifyAndMarkAttendance(value);
+    }
+
+    window.addEventListener('beforeunload', stopCamera);
+  </script>
 </body>
 </html>
