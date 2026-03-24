@@ -1,0 +1,66 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0b0b1d;
+  color: #fff;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.card {
+  background: #151530;
+  border: 1px solid #2b2b55;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+video {
+  width: 100%;
+  max-height: 420px;
+  background: #000;
+  border-radius: 12px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #444;
+  background: #0f1025;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+#startBtn, #manualVerifyBtn {
+  background: #f0cf5b;
+  color: #111;
+  font-weight: 700;
+}
+
+#stopBtn {
+  background: #444;
+  color: #fff;
+}
+
+#status {
+  margin-top: 12px;
+  color: #cfcfe8;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
