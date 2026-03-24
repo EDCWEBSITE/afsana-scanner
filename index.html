@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Afsana 2026 – QR Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<style>
+:root {
+  --bg:      #0b0a14;
+  --surface: #111020;
+  --card:    #171626;
+  --raised:  #1e1d30;
+  --border:  #2a2940;
+  --gold:    #d4af37;
+  --gold-lt: #f0d060;
+  --cream:   #e0dac8;
+  --muted:   #6a688a;
+  --text:    #ccc8bc;
+  --success: #22c55e;
+  --danger:  #ef4444;
+  --warning: #f59e0b;
+  --r:       12px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* BG orbs */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(212,175,55,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 10% 90%, rgba(124,58,237,0.08) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── HEADER ── */
+.header {
+  width: 100%;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative; z-index: 10;
+}
+.header-brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.header-brand .brand-name {
+  font-family: 'Playfair Display', serif;
+  color: var(--gold);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+.header-brand .brand-sub {
+  font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.header-link {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--muted); font-size: 12px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  padding: 7px 14px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.header-link:hover { color: var(--gold); border-color: var(--gold-dim); }
+
+/* ── MAIN CONTAINER ── */
+.container {
+  width: 100%;
+  max-width: 900px;
+  padding: 30px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative; z-index: 1;
+}
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.mini-stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px 18px;
+  text-align: center;
+}
+.mini-stat .ms-val {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--cream);
+}
+.mini-stat .ms-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 2px;
+}
+.mini-stat.green .ms-val { color: var(--success); }
+
+/* ── GRID ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 700px) { .main-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+
+/* ── SCANNER CARD ── */
+.scanner-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.card-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  color: var(--cream);
+}
+.card-header p { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+.scanner-viewport {
+  position: relative;
+  width: 100%;
+  background: #000;
+  aspect-ratio: 1;
+  max-height: 360px;
+}
+video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+canvas#qr-canvas { display: none; }
+
+/* Scan overlay */
+.scan-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.scan-frame {
+  width: 65%; aspect-ratio: 1;
+  position: relative;
+}
+.scan-frame::before,
+.scan-frame::after,
+.scan-frame .c3,
+.scan-frame .c4 {
+  content: '';
+  position: absolute;
+  width: 28px; height: 28px;
+  border-color: var(--gold);
+  border-style: solid;
+}
+.scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
+.scan-frame::after  { top: 0; right: 0; border-width: 3px 3px 0 0; }
+.scan-frame .c3     { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
+.scan-frame .c4     { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+
+/* Scan line */
+.scan-line {
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  animation: scanMove 2s linear infinite;
+  box-shadow: 0 0 10px var(--gold);
+}
+@keyframes scanMove {
+  0%   { top: 5%; }
+  50%  { top: 90%; }
+  100% { top: 5%; }
+}
+
+.scanner-status {
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+}
+.scanning-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+.scanner-controls {
+  padding: 14px 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── RESULT CARD ── */
+.result-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+.result-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  padding: 30px;
+}
+.result-placeholder i { font-size: 40px; opacity: 0.3; }
+.result-placeholder p { font-size: 13px; text-align: center; }
+
+.result-content {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+}
+.result-content.show { display: flex; }
+
+.result-banner {
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.result-banner.success-bg { background: rgba(34,197,94,0.1); border-bottom: 1px solid rgba(34,197,94,0.2); }
+.result-banner.already-bg { background: rgba(56,189,248,0.1); border-bottom: 1px solid rgba(56,189,248,0.2); }
+.result-banner.error-bg   { background: rgba(239,68,68,0.1); border-bottom: 1px solid rgba(239,68,68,0.2); }
+
+.result-banner-icon {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.result-banner-icon.success { background: rgba(34,197,94,0.2); color: var(--success); }
+.result-banner-icon.already { background: rgba(56,189,248,0.2); color: #38bdf8; }
+.result-banner-icon.error   { background: rgba(239,68,68,0.2);  color: var(--danger); }
+
+.result-banner-text h3 { font-size: 1.1rem; color: var(--cream); margin-bottom: 3px; }
+.result-banner-text p  { font-size: 12px; color: var(--muted); }
+
+.result-details {
+  padding: 18px 22px;
+  flex: 1;
+}
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  gap: 12px;
+}
+.result-row:last-child { border-bottom: none; }
+.result-row .rk { color: var(--muted); flex-shrink: 0; }
+.result-row .rv { color: var(--cream); font-weight: 500; text-align: right; }
+
+/* ── MANUAL INPUT ── */
+.manual-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px;
+}
+.manual-section h3 {
+  font-size: 1rem;
+  color: var(--cream);
+  margin-bottom: 6px;
+}
+.manual-section p { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+.manual-input-row {
+  display: flex;
+  gap: 10px;
+}
+.manual-input-row input {
+  flex: 1;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 11px 16px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: monospace;
+}
+.manual-input-row input:focus { border-color: var(--gold); }
+
+/* ── ATTENDANCE LOG ── */
+.log-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.log-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.log-header h3 { font-size: 0.95rem; color: var(--cream); }
+.clear-log {
+  font-size: 11px; color: var(--muted);
+  background: transparent; border: none;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: color 0.2s;
+}
+.clear-log:hover { color: var(--danger); }
+.log-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.log-item {
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.log-item:last-child { border-bottom: none; }
+.log-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.log-dot.ok      { background: var(--success); }
+.log-dot.dup     { background: #38bdf8; }
+.log-dot.err     { background: var(--danger); }
+.log-item .log-name { color: var(--cream); font-weight: 500; flex: 1; }
+.log-item .log-time { color: var(--muted); white-space: nowrap; }
+.log-empty {
+  text-align: center;
+  padding: 30px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; outline: none;
+  transition: all 0.2s;
+}
+.btn-primary  { background: linear-gradient(135deg, var(--gold), var(--gold-lt)); color: #0b0a14; }
+.btn-primary:hover { box-shadow: 0 6px 18px rgba(212,175,55,0.3); }
+.btn-ghost    { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text); }
+.btn-danger   { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); }
+.btn-sm { padding: 7px 14px; font-size: 12px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* spinner */
+.btn .btn-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: #0b0a14;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: none;
+}
+.btn.loading .btn-spinner { display: inline-block; }
+.btn.loading .btn-txt { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-brand">
+    <div>
+      <div class="brand-name">AFSANA 2026</div>
+      <div class="brand-sub">QR Attendance Scanner</div>
+    </div>
+  </div>
+  <a href="?page=admin" class="header-link">
+    <i class="fas fa-table-cells"></i> Admin Panel
+  </a>
+</div>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="mini-stat">
+      <div class="ms-val" id="stat-approved">—</div>
+      <div class="ms-lbl">Approved</div>
+    </div>
+    <div class="mini-stat green">
+      <div class="ms-val" id="stat-present">—</div>
+      <div class="ms-lbl">Present</div>
+    </div>
+    <div class="mini-stat">
+      <div class="ms-val" id="stat-scanned">0</div>
+      <div class="ms-lbl">Scanned Today</div>
+    </div>
+  </div>
+
+  <!-- Scanner + Result -->
+  <div class="main-grid">
+
+    <!-- Camera Scanner -->
+    <div class="scanner-card">
+      <div class="card-header">
+        <h2><i class="fas fa-qrcode" style="color:var(--gold);margin-right:8px;"></i>Camera Scanner</h2>
+        <p>Point camera at the student's QR code</p>
+      </div>
+      <div class="scanner-viewport">
+        <video id="scanner-video" autoplay playsinline muted></video>
+        <canvas id="qr-canvas"></canvas>
+        <!-- Overlay when camera is off -->
+        <div id="camera-placeholder" style="position:absolute;inset:0;background:var(--raised);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);">
+          <i class="fas fa-camera" style="font-size:36px;opacity:0.3;"></i>
+          <p style="font-size:13px;">Camera not started</p>
+        </div>
+        <div class="scan-overlay" id="scan-overlay" style="display:none;">
+          <div class="scan-frame">
+            <span class="c3"></span>
+            <span class="c4"></span>
+            <div class="scan-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="scanner-status" id="scanner-status">
+        <i class="fas fa-circle-info"></i> Camera not started
+      </div>
+      <div class="scanner-controls">
+        <button class="btn btn-primary" id="start-btn" onclick="startCamera()">
+          <i class="fas fa-play"></i> Start Scanner
+        </button>
+        <button class="btn btn-ghost" id="stop-btn" onclick="stopCamera()" disabled>
+          <i class="fas fa-stop"></i> Stop
+        </button>
+        <button class="btn btn-ghost btn-sm" id="flip-btn" onclick="flipCamera()" style="margin-left:auto;" disabled>
+          <i class="fas fa-rotate"></i> Flip
+        </button>
+      </div>
+    </div>
+
+    <!-- Result Panel -->
+    <div class="result-card">
+      <div class="card-header">
+        <h2><i class="fas fa-id-card" style="color:var(--gold);margin-right:8px;"></i>Scan Result</h2>
+        <p>Student details appear here after scanning</p>
+      </div>
+
+      <div class="result-placeholder" id="result-placeholder">
+        <i class="fas fa-id-card-clip"></i>
+        <p>Scan a QR code to see<br>student details here</p>
+      </div>
+
+      <div class="result-content" id="result-content">
+        <div class="result-banner" id="result-banner">
+          <div class="result-banner-icon" id="result-icon">
+            <i class="fas fa-check" id="result-icon-i"></i>
+          </div>
+          <div class="result-banner-text">
+            <h3 id="result-title">Success</h3>
+            <p id="result-subtitle">Student marked as present</p>
+          </div>
+        </div>
+        <div class="result-details" id="result-details">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Entry -->
+  <div class="manual-section">
+    <h3><i class="fas fa-keyboard" style="color:var(--gold);margin-right:8px;"></i>Manual QR Code Entry</h3>
+    <p>If the camera can't scan, paste the QR data manually (from the encoded string).</p>
+    <div class="manual-input-row">
+      <input type="text" id="manual-qr" placeholder="Paste the base64-encoded QR string here…"
+             onkeydown="if(event.key==='Enter')manualVerify()">
+      <button class="btn btn-primary" id="manual-btn" onclick="manualVerify()">
+        <div class="btn-spinner"></div>
+        <span class="btn-txt"><i class="fas fa-check"></i> Verify</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="log-section">
+    <div class="log-header">
+      <h3><i class="fas fa-list-check" style="color:var(--gold);margin-right:8px;"></i>Session Attendance Log</h3>
+      <button class="clear-log" onclick="clearLog()">Clear log</button>
+    </div>
+    <div class="log-list" id="log-list">
+      <div class="log-empty">No scans in this session yet</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────
+let stream = null;
+let scanLoopId = null;
+let scanning = false;
+let lastScanned = '';
+let lastScannedTime = 0;
+let sessionScanned = 0;
+let facingMode = 'environment'; // back camera by default
+const log = [];
+
+// Prevent double-scan within 3 seconds
+const SCAN_DEBOUNCE = 3000;
+
+// ── CAMERA ───────────────────────────────────────────
+async function startCamera() {
+  try {
+    setStatus('Starting camera…', 'info');
+    if (stream) stopCamera();
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+
+    const video = document.getElementById('scanner-video');
+    video.srcObject = stream;
+    await video.play();
+
+    document.getElementById('camera-placeholder').style.display = 'none';
+    document.getElementById('scan-overlay').style.display = 'flex';
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('stop-btn').disabled = false;
+    document.getElementById('flip-btn').disabled = false;
+
+    scanning = true;
+    setStatus('Scanning… point at QR code', 'scanning');
+    requestAnimationFrame(scanFrame);
+  } catch (err) {
+    setStatus('Camera error: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  document.getElementById('scanner-video').srcObject = null;
+  document.getElementById('camera-placeholder').style.display = 'flex';
+  document.getElementById('scan-overlay').style.display = 'none';
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('flip-btn').disabled = true;
+  setStatus('Camera stopped', 'info');
+}
+
+async function flipCamera() {
+  facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+  stopCamera();
+  setTimeout(startCamera, 300);
+}
+
+// ── QR SCAN LOOP ──────────────────────────────────────
+function scanFrame() {
+  if (!scanning) return;
+  const video = document.getElementById('scanner-video');
+  if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+    requestAnimationFrame(scanFrame);
+    return;
+  }
+
+  const canvas = document.getElementById('qr-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imageData.data, imageData.width, imageData.height, {
+    inversionAttempts: 'dontInvert'
+  });
+
+  if (code && code.data) {
+    const now = Date.now();
+    if (code.data !== lastScanned || (now - lastScannedTime) > SCAN_DEBOUNCE) {
+      lastScanned = code.data;
+      lastScannedTime = now;
+      processQRData(code.data);
+    }
+  }
+
+  requestAnimationFrame(scanFrame);
+}
+
+// ── PROCESS QR ────────────────────────────────────────
+function processQRData(data) {
+  setStatus('QR detected! Verifying…', 'scanning');
+  verifyQR(data);
+}
+
+function manualVerify() {
+  const val = document.getElementById('manual-qr').value.trim();
+  if (!val) return;
+  setButtonLoading('manual-btn', true);
+  verifyQR(val, () => {
+    setButtonLoading('manual-btn', false);
+    document.getElementById('manual-qr').value = '';
+  });
+}
+
+function verifyQR(qrData, callback) {
+  google.script.run
+    .withSuccessHandler(res => {
+      handleVerifyResult(res, qrData);
+      if (callback) callback();
+    })
+    .withFailureHandler(err => {
+      handleVerifyError(err);
+      if (callback) callback();
+    })
+    .verifyAndMarkAttendance(qrData);
+}
+
+function handleVerifyResult(res, qrData) {
+  if (res.success) {
+    const isNew = !res.alreadyMarked;
+    const type = isNew ? 'success' : 'already';
+    const title = isNew ? '✓ Marked Present!' : 'Already Present';
+    const sub = isNew ? 'Attendance recorded successfully' : 'Previously scanned – no duplicate created';
+
+    showResult(type, title, sub, res.student);
+
+    if (isNew) {
+      sessionScanned++;
+      document.getElementById('stat-scanned').textContent = sessionScanned;
+      refreshStats();
+    }
+
+    addLog(res.student.name, isNew ? 'ok' : 'dup', res.student.role, isNew);
+    if (scanning) setStatus('Scanning… point at QR code', 'scanning');
+  } else {
+    showError(res.error || 'Verification failed');
+    addLog(res.error || 'Unknown error', 'err', '', false);
+  }
+}
+
+function handleVerifyError(err) {
+  showError('Server error: ' + err);
+  if (scanning) setStatus('Scanning… point at QR code', 'scanning');
+}
+
+// ── RESULT DISPLAY ────────────────────────────────────
+function showResult(type, title, sub, student) {
+  document.getElementById('result-placeholder').style.display = 'none';
+  const rc = document.getElementById('result-content');
+  rc.classList.add('show');
+
+  const banner = document.getElementById('result-banner');
+  banner.className = 'result-banner ' +
+    (type === 'success' ? 'success-bg' : type === 'already' ? 'already-bg' : 'error-bg');
+
+  const icon = document.getElementById('result-icon');
+  icon.className = 'result-banner-icon ' + type;
+  document.getElementById('result-icon-i').className =
+    'fas ' + (type === 'success' ? 'fa-circle-check' : type === 'already' ? 'fa-circle-info' : 'fa-circle-xmark');
+
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-subtitle').textContent = sub;
+
+  if (student) {
+    document.getElementById('result-details').innerHTML = `
+      <div class="result-row"><span class="rk">Name</span><span class="rv">${esc(student.name)}</span></div>
+      <div class="result-row"><span class="rk">Enrollment</span><span class="rv" style="font-family:monospace;">${esc(student.enrollmentNo)}</span></div>
+      <div class="result-row"><span class="rk">Branch</span><span class="rv">${esc(student.branch)}</span></div>
+      <div class="result-row"><span class="rk">Role</span><span class="rv">${esc(student.role)}</span></div>
+      <div class="result-row"><span class="rk">Event</span><span class="rv">${esc(student.event)}</span></div>
+      <div class="result-row"><span class="rk">Marked At</span><span class="rv">${esc(student.markedAt)}</span></div>
+    `;
+  }
+}
+
+function showError(msg) {
+  document.getElementById('result-placeholder').style.display = 'none';
+  const rc = document.getElementById('result-content');
+  rc.classList.add('show');
+
+  document.getElementById('result-banner').className = 'result-banner error-bg';
+  const icon = document.getElementById('result-icon');
+  icon.className = 'result-banner-icon error';
+  document.getElementById('result-icon-i').className = 'fas fa-circle-xmark';
+  document.getElementById('result-title').textContent = 'Verification Failed';
+  document.getElementById('result-subtitle').textContent = msg;
+  document.getElementById('result-details').innerHTML = `
+    <div class="result-row">
+      <span class="rk">Error</span>
+      <span class="rv" style="color:var(--danger);">${esc(msg)}</span>
+    </div>`;
+
+  if (scanning) setStatus('Scanning… point at QR code', 'scanning');
+}
+
+// ── LOG ───────────────────────────────────────────────
+function addLog(name, type, role, isNew) {
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  log.unshift({ name, type, role, time });
+  renderLog();
+}
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!log.length) {
+    el.innerHTML = '<div class="log-empty">No scans in this session yet</div>';
+    return;
+  }
+  el.innerHTML = log.map(l => `
+    <div class="log-item">
+      <div class="log-dot ${l.type}"></div>
+      <div class="log-name">${esc(l.name)}</div>
+      <div style="font-size:11px;color:var(--muted);">${esc(l.role)}</div>
+      <div class="log-time">${l.time}</div>
+    </div>
+  `).join('');
+}
+function clearLog() { log.length = 0; renderLog(); }
+
+// ── STATS ─────────────────────────────────────────────
+function refreshStats() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        document.getElementById('stat-approved').textContent = res.approved;
+        document.getElementById('stat-present').textContent  = res.present;
+      }
+    })
+    .getAttendanceSummary();
+}
+
+// ── STATUS ────────────────────────────────────────────
+function setStatus(msg, type) {
+  const el = document.getElementById('scanner-status');
+  if (type === 'scanning') {
+    el.innerHTML = `<div class="scanning-dot"></div> ${esc(msg)}`;
+  } else if (type === 'error') {
+    el.innerHTML = `<i class="fas fa-circle-xmark" style="color:var(--danger);"></i> ${esc(msg)}`;
+  } else {
+    el.innerHTML = `<i class="fas fa-circle-info"></i> ${esc(msg)}`;
+  }
+}
+
+function setButtonLoading(id, loading) {
+  const btn = document.getElementById(id);
+  if (loading) btn.classList.add('loading');
+  else btn.classList.remove('loading');
+  btn.disabled = loading;
+}
+
+// ── UTILS ─────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '—';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── INIT ──────────────────────────────────────────────
+refreshStats();
+</script>
+</body>
+</html>
